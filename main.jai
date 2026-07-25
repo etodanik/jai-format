@@ -96,11 +96,12 @@ main :: ()
         if !should_skip_file( *formatter, file )
         {
             max_bytes_to_read := 1024 * 1024;
-            if file
-            {
-                _, file_size, ok := file_modtime_and_size( file );
-                if ok then max_bytes_to_read = file_size;
-            }
+            // TODO: Read stdin to a string builder and don't rely on file size.
+            // if file
+            // {
+            //     _, file_size, ok := file_modtime_and_size( file );
+            //     if ok then max_bytes_to_read = file_size;
+            // }
 
             input := read_stdin( max_bytes_to_read );
             defer free( input.data );
