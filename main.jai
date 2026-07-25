@@ -29,13 +29,13 @@ cli_args: CLI_Arguments;
 main :: ()
 {
     ok, cli_args=, is_set, free_arguments := parse_arguments( CLI_Arguments );
-    #if INTERNAL
-    {
-        cli_args.to_stdout = true;
-        cli_args.to_file = false;
-        cli_args.verbose = true;
-        // cli_args.config_file = "";
-    }
+    // #if INTERNAL
+    // {
+    //     cli_args.to_stdout = true;
+    //     cli_args.to_file = false;
+    //     cli_args.verbose = true;
+    //     // cli_args.config_file = "";
+    // }
     if !ok then return;
 
     context.logger = custom_logger;
@@ -45,13 +45,13 @@ main :: ()
     context.print_style.default_format_struct.use_newlines_if_long_form = true;
     log_verbose( "Config:\n%", global_config );
 
-    #if INTERNAL
-    {
-        TEST_FILE :: "test_code.jai";
-        test_files: [ .. ]string;
-        array_add( *test_files, TEST_FILE );
-        free_arguments = test_files;
-    }
+    // #if INTERNAL
+    // {
+    //     TEST_FILE :: "test_code.jai";
+    //     test_files: [ .. ]string;
+    //     array_add( *test_files, TEST_FILE );
+    //     free_arguments = test_files;
+    // }
 
     formatter := make_formatter( global_config );
 

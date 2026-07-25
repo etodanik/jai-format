@@ -208,6 +208,9 @@ test :: () {
     {
 
     }
+
+    (.*)cast( **u8 ) offset = ptr;
+    print("line: %", #location().line_number);
 }
 DONE
 
@@ -225,6 +228,9 @@ test :: () {
 
     {
     }
+
+    (.*)cast(**u8)offset = ptr;
+    print("line: %", #location().line_number);
 }
 DONE;
 

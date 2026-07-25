@@ -1048,9 +1048,10 @@ print_binary_operation :: ( f: *Jai_Formatter, op: *Binary_Operation, no_semicol
 
 print_unary_operation :: ( f: *Jai_Formatter, op: *Unary_Operation )
 {
-    if op.operation != .POINTER_DEREFERENCE
+    if op.operation != .POINTER_DEREFERENCE ||
+       ( op.operation == .POINTER_DEREFERENCE && op.is_prefix_dereference )
     {
-        print_operator( f, op.operation );
+        print_operator( f, op );
     }
 
     if op.expression
@@ -1058,9 +1059,14 @@ print_unary_operation :: ( f: *Jai_Formatter, op: *Unary_Operation )
         print_node( f, op.expression );
     }
 
-    if op.operation == .POINTER_DEREFERENCE
+    if op.operation == .POINTER_DEREFERENCE && !op.is_prefix_dereference
     {
-        print_operator( f, op.operation );
+        print_operator( f, op );
+    }
+
+    if op.operation == .POINTER_DEREFERENCE && standalone_expression( op )
+    {
+        semicolon( f );
     }
 }
 
@@ -2513,7 +2519,7 @@ print_comments :: ( f: *Jai_Formatter, node: *Node, at_end_of_block := false, re
 }
 
 print_operator :: ( f: *Jai_Formatter, op: $T )
-#modify { return T == _Operator || T == Unary_Operation.Operation; }
+#modify { return T == _Operator || T == *Unary_Operation; }
 {
     print_space: bool;
     #if T == _Operator
@@ -2593,13 +2599,13 @@ insert_new_lines :: ( f: *Jai_Formatter, node: *Node ) -> int
 }
 
 get_operator_string :: ( op: $T ) -> string
-#modify { return T == _Operator || T == Unary_Operation.Operation; }
+#modify { return T == _Operator || T == *Unary_Operation; }
 {
     result: string;
 
-    #if T == Unary_Operation.Operation
+    #if T == *Unary_Operation
     {
-        if op ==
+        if op.operation ==
         {
         case .INVALID;
         case .PLUS;
@@ -2613,7 +2619,14 @@ get_operator_string :: ( op: $T ) -> string
         case .POINTER;
             result = "*";
         case .POINTER_DEREFERENCE;
-            result = ".*";
+            if op.is_prefix_dereference
+            {
+                result = "(.*)";
+            }
+            else
+            {
+                result = ".*";
+            }
         case .ELLIPSIS;
             result = "..";
         case .BITWISE_NOT;
