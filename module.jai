@@ -549,7 +549,10 @@ print_block :: ( f: *Jai_Formatter, b: *Block, is_modify := false )
         // NOTE: If we're below the parent in the original code that means insert_new_lines already inserted a proper amount of new lines. 
         same_line_as_parent := f.previous_print_type == .STRING || f.previous_print_type == .SEMICOLON;
         // same_line_as_parent := b.location.l0 == b.parent.location.l0;
-        on_new_line = f.braces_on_new_line && ( ( !same_line_as_parent && single_line ) || ( !single_line && same_line_as_parent ) );
+        on_new_line = b.parent != null &&
+                      f.braces_on_new_line &&
+                      ( ( !same_line_as_parent && single_line ) ||
+                        ( !single_line && same_line_as_parent ) );
     }
 
     if b.no_aoc

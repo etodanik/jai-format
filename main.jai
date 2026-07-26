@@ -336,7 +336,6 @@ read_stdin :: ( max_bytes_to_read: int ) -> string
                 return "";
             }
         }
-
     }
 
     result.count = total_read;
