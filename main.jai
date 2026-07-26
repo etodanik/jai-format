@@ -296,32 +296,50 @@ read_stdin :: ( max_bytes_to_read: int ) -> string
         stdin := STDIN_FILENO;
     }
 
-    ok, bytes_read := file_read( .{ stdin }, result.data, max_bytes_to_read );
+    to_read := max_bytes_to_read;
+    ok := true;
+    total_read: int;
 
-    #if OS == .WINDOWS
+    while ok
     {
-        if !ok
+        bytes_read: int;
+        ok, bytes_read = file_read( .{ stdin }, result.data + total_read, to_read );
+        total_read += bytes_read;
+        to_read -= bytes_read;
+
+        #if OS == .WINDOWS
         {
-            BROKEN_PIPE_ERROR :: 109;
-            err := GetLastError();
-            if err != BROKEN_PIPE_ERROR
+            if !ok
             {
-                log_error( "Failed to read stdin. bytes_read: %, error: %", bytes_read, err );
+                BROKEN_PIPE_ERROR :: 109;
+                err := GetLastError();
+                if err != BROKEN_PIPE_ERROR
+                {
+                    log_error( "Failed to read stdin. bytes_read: %, error: %", bytes_read, err );
+                    return "";
+                }
+                else
+                {
+                    if bytes_read > 0
+                    {
+                        ok = true;
+                    }
+                }
+            }
+        }
+        else #if OS == .LINUX || OS == .MACOS
+        {
+            // TODO: Check if linux version works
+            if !ok
+            {
+                log_error( "Failed to read stdin." );
                 return "";
             }
         }
-    }
-    else #if OS == .LINUX || OS == .MACOS
-    {
-        // TODO: Check if linux version works
-        if !ok
-        {
-            log_error( "Failed to read stdin." );
-            return "";
-        }
+
     }
 
-    result.count = bytes_read;
+    result.count = total_read;
 
     return result;
 }
