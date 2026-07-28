@@ -71,6 +71,8 @@ test :: () {
     for *=DO_POINTER things print(it);
     for *=DO_POINTER, <=DO_REVERSE things print(it);
     for <=DO_REVERSE,*=DO_POINTER   things print(it);
+
+    for things.* {}
 }
 DONE
 
@@ -103,6 +105,8 @@ test :: () {
     for *= DO_POINTER things print(it);
     for <= DO_REVERSE, *= DO_POINTER things print(it);
     for <= DO_REVERSE, *= DO_POINTER things print(it);
+
+    for things.* {}
 }
 DONE;
 
@@ -252,6 +256,8 @@ test :: () {
     }
 
     c := ifx b > 0 else 8;
+
+    parameters := ifx params then params.* else .{};
 }
 DONE
 
@@ -280,6 +286,8 @@ test :: () {
     };
 
     c := ifx b > 0 else 8;
+
+    parameters := ifx params then params.* else .{};
 }
 DONE;
 
@@ -577,7 +585,7 @@ test :: () {
     while true 
         print(it);
 }
-DONE;
+DONE
 
 remove_new_line :: () -> Test_Parameters
 {
@@ -619,7 +627,7 @@ DONE;
     return result;
 } @Test
 
-DOUBLE_SPACE:: #string DONE
+DOUBLE_SPACE :: #string DONE
 test :: () {
     if a b += a;
     else c *= a;
@@ -628,7 +636,7 @@ test :: () {
 
     while true print(it);
 }
-DONE;
+DONE
 
 double_space :: () -> Test_Parameters
 {

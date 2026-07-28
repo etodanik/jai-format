@@ -1067,7 +1067,7 @@ print_unary_operation :: ( f: *Jai_Formatter, op: *Unary_Operation )
         print_operator( f, op );
     }
 
-    if op.operation == .POINTER_DEREFERENCE && standalone_expression( op )
+    if op.operation == .POINTER_DEREFERENCE && op.is_prefix_dereference && standalone_expression( op )
     {
         semicolon( f );
     }
