@@ -4,7 +4,6 @@ test :: ()
 
     parameters := ifx params then params.* else .{};
 
-    for test.*
-    {
+    for test.* {
     }
 }

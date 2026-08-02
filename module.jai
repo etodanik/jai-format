@@ -436,7 +436,7 @@ print_node :: ( f: *Jai_Formatter, node: *Node, no_semicolon := false )
 
     f.current_max_source_collumn = max( f.current_max_source_collumn, max( node.location.c0, node.location.c1 ) );
 
-    // log( "print node: %, %, parent: %", node.kind, node.location, ifx node.parent then node.parent.kind else .UNINITIALIZATED );
+    // log( "print node: %, %, parent: %, inside_arguments: %", node.kind, node.location, ifx node.parent then node.parent.kind else .UNINITIALIZATED, f.inside_arguments );
 
     if node.kind ==
     {
@@ -714,8 +714,12 @@ print_declaration :: ( f: *Jai_Formatter, d: *Declaration, compound_type := Comp
     ends_with_block |= node_is( check, .PROCEDURE ) && d.expression;
     ends_with_block |= node_is( check, .DIRECTIVE_STRING );
 
+    // TODO: This inside_arguments and parent check is stupid. Change inside_arguments and other falgs like this to work only for one node - not all recursive calls.
     if !ends_with_block &&
-       !f.inside_arguments &&
+       ( !f.inside_arguments ||
+         ( f.inside_arguments && ( parent_is( d, .BLOCK ) ||
+                                   parent_is( d, .COMPOUND_DECLARATION ) ) ) ) &&
+       // !f.inside_arguments &&
        !no_semicolon
     {
         semicolon( f );
