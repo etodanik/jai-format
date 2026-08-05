@@ -30,6 +30,7 @@ Formatter_Config :: struct
     struct_literal_dot_mode := Struct_Literal_Dot_Mode.FORCE;
     multiline_array_literal_end_on_new_line := false;
     multiline_struct_literal_end_on_new_line := false;
+    procedure_call_trailing_comma_mode := Procedure_Call_Trailing_Comma_Mode.MULTILINE;
 
     single_statement_brace_mode := Single_Statement_Brace_Mode.DONT_MODIFY;
     single_statement_line_mode := Single_Statement_Line_Mode.DONT_MODIFY;
@@ -81,6 +82,13 @@ Struct_Literal_Dot_Mode :: enum
     REMOVE;
 }
 
+Procedure_Call_Trailing_Comma_Mode :: enum
+{
+    NEVER;
+    ALWAYS;
+    MULTILINE;
+}
+
 Alignment_Mode :: enum
 {
     NOT_SET;
@@ -103,6 +111,7 @@ Jai_Formatter :: struct( Parser_Visit_Type: Type = Node_Visit_Data )
     indent_string: string;
     current_line: int = -1;
     previous_line: int;
+    output_line: int;
 
     current_collumn: int;
     current_alignment: int;
@@ -168,7 +177,24 @@ make_formatter :: ( config: Formatter_Config ) -> Jai_Formatter( Node_Visit_Data
 reset_formatter :: ( f: *Jai_Formatter )
 {
     reset( *f.pool );
-    f.buffer.count = 0;
+
+    pool := f.pool;
+    buffer_allocator := f.buffer_allocator;
+    buffer := f.buffer;
+    buffer.count = 0;
+    max_buffer_size := f.max_buffer_size;
+    indent_string := f.indent_string;
+    config := f.config;
+
+    f.* = .{};
+    f.pool = pool;
+    f.buffer_allocator = buffer_allocator;
+    f.buffer = buffer;
+    f.max_buffer_size = max_buffer_size;
+    f.indent_string = indent_string;
+    f.config = config;
+    f.current_line = -1;
+    f.last_indent_only_alignment_line = -1;
 }
 
 deinit_formatter :: ( f: *Jai_Formatter )
@@ -907,6 +933,8 @@ print_procedure :: ( f: *Jai_Formatter, p: *Procedure )
 
 print_procedure_call :: ( f: *Jai_Formatter, p: *Procedure_Call, no_semicolon := false )
 {
+    call_start_line := f.output_line;
+
     if p.inlined
     {
         print( f, "inline " );
@@ -942,9 +970,25 @@ print_procedure_call :: ( f: *Jai_Formatter, p: *Procedure_Call, no_semicolon :=
         }
     }
 
+    multiline := f.output_line > call_start_line;
+    has_arguments := !empty_args;
+    trailing_comma := has_arguments &&
+                      ( f.procedure_call_trailing_comma_mode == .ALWAYS ||
+                        ( f.procedure_call_trailing_comma_mode == .MULTILINE && multiline ) );
+    if trailing_comma then print( f, "," );
+
     end_arguments( f );
 
-    close_paren( f, !empty_args );
+    if multiline
+    {
+        pop_alignment( f );
+        maybe_print_new_line( f, true, should_indent = true );
+        print( f, ")" );
+    }
+    else
+    {
+        close_paren( f, !empty_args );
+    }
 
     if standalone_expression( p ) && !no_semicolon
     {
@@ -2045,6 +2089,54 @@ print_inline_assembly :: ( f: *Jai_Formatter, a: *Inline_Assembly )
     print( f, a.body );
 }
 
+Module_Parameters_Syntax :: struct
+{
+    parameter_list_count: int;
+    has_body: bool;
+}
+
+get_module_parameters_syntax :: ( f: *Jai_Formatter, d: *Directive_Module_Parameters ) -> Module_Parameters_Syntax
+{
+    result: Module_Parameters_Syntax;
+    found_directive: bool;
+    paren_depth: int;
+
+    for token: f.parser.lexer.tokens
+    {
+        if !found_directive
+        {
+            found_directive = token.kind == .DIRECTIVE &&
+                              token.string_value == "module_parameters" &&
+                              token.l0 == d.location.l0 && token.c0 == d.location.c0;
+            continue;
+        }
+
+        if paren_depth == 0
+        {
+            if token.kind == #char "("
+            {
+                result.parameter_list_count += 1;
+                paren_depth = 1;
+                continue;
+            }
+
+            result.has_body = token.kind == #char "{";
+            break;
+        }
+
+        if token.kind == #char "("
+        {
+            paren_depth += 1;
+        }
+        else if token.kind == #char ")"
+        {
+            paren_depth -= 1;
+        }
+    }
+
+    return result;
+}
+
 print_directive :: ( f: *Jai_Formatter, d: *$T, no_semicolon := false )
 {
     #if T ==
@@ -2057,6 +2149,9 @@ print_directive :: ( f: *Jai_Formatter, d: *$T, no_semicolon := false )
         // NOTE: strings can have % in them so this "%" makes sure that the actual string value is passed to print as one of the var args and not as the format string.
         print( f, "%", d.string_value );
         print( f, "%", d.identifier );
+        f.previous_line = f.current_line;
+        f.current_line = d.location.l1;
+        f.current_collumn = d.location.c1;
     case Directive_Import;
         print( f, "#import" );
 
@@ -2306,31 +2401,27 @@ print_directive :: ( f: *Jai_Formatter, d: *$T, no_semicolon := false )
         close_paren( f, d.expression != null );
 
     case Directive_Module_Parameters;
+        syntax := get_module_parameters_syntax( f, d );
         print( f, "#module_parameters" );
-        if d.module_parameters
+        if syntax.parameter_list_count > 0
         {
             begin_arguments( f );
             open_paren( f );
-            comma_separated_node_list( f, d.module_parameters );
+            if d.module_parameters then comma_separated_node_list( f, d.module_parameters );
             close_paren( f );
             end_arguments( f );
         }
 
-        if d.program_parameters
+        if syntax.parameter_list_count > 1
         {
-            if !d.module_parameters
-            {
-                open_paren( f, false );
-                close_paren( f, false );
-            }
             begin_arguments( f );
             open_paren( f );
-            comma_separated_node_list( f, d.program_parameters );
+            if d.program_parameters then comma_separated_node_list( f, d.program_parameters );
             close_paren( f );
             end_arguments( f );
         }
 
-        semicolon( f );
+        if !syntax.has_body && !no_semicolon then semicolon( f );
 
     case Directive_Placeholder;
         print( f, "#placeholder " );
@@ -2550,6 +2641,7 @@ standalone_expression :: ( e: *Node ) -> bool
 {
     return parent_is( e, .BLOCK ) ||
            parent_is( e, .CASE ) ||
+           parent_is( e, .DIRECTIVE_SCOPE ) ||
            parent_is( e, .IF ) ||
            parent_is( e, .FOR ) ||
            parent_is( e, .WHILE ) ||
@@ -2888,6 +2980,11 @@ print :: ( f: *Jai_Formatter, format: string, args: ..Any )
 
     memcpy( f.buffer.data + f.buffer.count, to_print.data, to_print.count );
     f.buffer.count += to_print.count;
+
+    for to_print
+    {
+        if it == #char "\n" then f.output_line += 1;
+    }
 
     f.current_collumn += to_print.count;
     f.previous_print_type = .STRING;
