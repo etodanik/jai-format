@@ -111,7 +111,6 @@ Jai_Formatter :: struct( Parser_Visit_Type: Type = Node_Visit_Data )
     indent_string: string;
     current_line: int = -1;
     previous_line: int;
-    output_line: int;
 
     current_collumn: int;
     current_alignment: int;
@@ -933,8 +932,6 @@ print_procedure :: ( f: *Jai_Formatter, p: *Procedure )
 
 print_procedure_call :: ( f: *Jai_Formatter, p: *Procedure_Call, no_semicolon := false )
 {
-    call_start_line := f.output_line;
-
     if p.inlined
     {
         print( f, "inline " );
@@ -970,7 +967,7 @@ print_procedure_call :: ( f: *Jai_Formatter, p: *Procedure_Call, no_semicolon :=
         }
     }
 
-    multiline := f.output_line > call_start_line;
+    multiline := p.location.l0 != p.location.l1;
     has_arguments := !empty_args;
     trailing_comma := has_arguments &&
                       ( f.procedure_call_trailing_comma_mode == .ALWAYS ||
@@ -2938,11 +2935,6 @@ print :: ( f: *Jai_Formatter, format: string, args: ..Any )
 
     memcpy( f.buffer.data + f.buffer.count, to_print.data, to_print.count );
     f.buffer.count += to_print.count;
-
-    for to_print
-    {
-        if it == #char "\n" then f.output_line += 1;
-    }
 
     f.current_collumn += to_print.count;
     f.previous_print_type = .STRING;
