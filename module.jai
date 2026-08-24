@@ -2089,54 +2089,6 @@ print_inline_assembly :: ( f: *Jai_Formatter, a: *Inline_Assembly )
     print( f, a.body );
 }
 
-Module_Parameters_Syntax :: struct
-{
-    parameter_list_count: int;
-    has_body: bool;
-}
-
-get_module_parameters_syntax :: ( f: *Jai_Formatter, d: *Directive_Module_Parameters ) -> Module_Parameters_Syntax
-{
-    result: Module_Parameters_Syntax;
-    found_directive: bool;
-    paren_depth: int;
-
-    for token: f.parser.lexer.tokens
-    {
-        if !found_directive
-        {
-            found_directive = token.kind == .DIRECTIVE &&
-                              token.string_value == "module_parameters" &&
-                              token.l0 == d.location.l0 && token.c0 == d.location.c0;
-            continue;
-        }
-
-        if paren_depth == 0
-        {
-            if token.kind == #char "("
-            {
-                result.parameter_list_count += 1;
-                paren_depth = 1;
-                continue;
-            }
-
-            result.has_body = token.kind == #char "{";
-            break;
-        }
-
-        if token.kind == #char "("
-        {
-            paren_depth += 1;
-        }
-        else if token.kind == #char ")"
-        {
-            paren_depth -= 1;
-        }
-    }
-
-    return result;
-}
-
 print_directive :: ( f: *Jai_Formatter, d: *$T, no_semicolon := false )
 {
     #if T ==
@@ -2401,9 +2353,8 @@ print_directive :: ( f: *Jai_Formatter, d: *$T, no_semicolon := false )
         close_paren( f, d.expression != null );
 
     case Directive_Module_Parameters;
-        syntax := get_module_parameters_syntax( f, d );
         print( f, "#module_parameters" );
-        if syntax.parameter_list_count > 0
+        if d.has_module_parameters
         {
             begin_arguments( f );
             open_paren( f );
@@ -2412,7 +2363,7 @@ print_directive :: ( f: *Jai_Formatter, d: *$T, no_semicolon := false )
             end_arguments( f );
         }
 
-        if syntax.parameter_list_count > 1
+        if d.has_program_parameters
         {
             begin_arguments( f );
             open_paren( f );
@@ -2421,7 +2372,14 @@ print_directive :: ( f: *Jai_Formatter, d: *$T, no_semicolon := false )
             end_arguments( f );
         }
 
-        if !syntax.has_body && !no_semicolon then semicolon( f );
+        if d.body
+        {
+            print_node( f, d.body );
+        }
+        else
+        {
+            if !no_semicolon then semicolon( f );
+        }
 
     case Directive_Placeholder;
         print( f, "#placeholder " );
